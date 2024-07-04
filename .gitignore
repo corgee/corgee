@@ -1,0 +1,13 @@
+__pycache__/
+build/
+.ipynb_checkpoints/
+.venv
+*.so
+code/data/cython/_read.c
+code/main/xclib/_sparse.c
+azcopy_linux_amd64_10.16.1
+azcopy_linux_amd64_10.16.1.tar.gz
+.amltconfig
+wandb/
+venv_build/
+*.html

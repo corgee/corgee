@@ -1,0 +1,12 @@
+Number of fine tuning datapoints
+
+medi_sts_wiki_rephrasal	25000
+reddit_triples	200000
+nli_simcse_50negs_fixed	275595
+hotpotqa_hn_mine_shuffled	170000
+medi_sts_flickr_sampled	51186
+fever_hn_mine	140085
+msmarco_distillation_simlm_rescored_reranked_min15	485721
+nq_cocondensor_hn_mine_reranked_min15	70002
+medi_supernli_sampled	177639
+medi_sts_stackexchange_dupe	100591
