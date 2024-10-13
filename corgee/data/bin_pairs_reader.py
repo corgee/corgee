@@ -296,6 +296,7 @@ class BinLPairsDataLoader:
 
 class BinLPairsDataLoaderMultitask:
     SingleDatasetClass = BinLPairsDataLoader
+
     def __init__(self, config, rank, world_size, device, *args, **kwargs):
         self.rank = rank
         self.world_size = world_size
