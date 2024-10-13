@@ -1,14 +1,15 @@
-
 import torch
-import torch.nn as nn
 import torch.distributed as dist
+import torch.nn as nn
 
 
 def init_weights_data(weight, std, clamp=None):
     if clamp == 0 or clamp is None:
         torch.nn.init.normal_(weight, mean=0.0, std=std)
     else:
-        torch.nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-clamp*std, b=clamp*std)
+        torch.nn.init.trunc_normal_(
+            weight, mean=0.0, std=std, a=-clamp * std, b=clamp * std
+        )
 
 
 def init_weights(module, std, clamp=None, std_emb=None):
@@ -36,7 +37,7 @@ def count_parameters(model):
     for name, param in model.named_parameters():
         num_params = param.numel()
         total_params += num_params
-        if isinstance(param, nn.Embedding) or 'embedding' in name:
+        if isinstance(param, nn.Embedding) or "embedding" in name:
             embedding_params += num_params
         else:
             non_embedding_params += num_params
@@ -45,11 +46,11 @@ def count_parameters(model):
 
 class GatherLayer(torch.autograd.Function):
     """
-        :class:`GatherLayer` is a module wrapper that realizes backward op in all_gather
-        Usage:
-        feat_global = torch.cat(all_gather(feat, group), 0)
-        # equals to
-        feat_global = GatherLayer.apply(feat, group, rank)
+    :class:`GatherLayer` is a module wrapper that realizes backward op in all_gather
+    Usage:
+    feat_global = torch.cat(all_gather(feat, group), 0)
+    # equals to
+    feat_global = GatherLayer.apply(feat, group, rank)
     """
 
     @staticmethod
@@ -58,8 +59,9 @@ class GatherLayer(torch.autograd.Function):
         ctx.group = group
         ctx.rank = rank
 
-        gathered_tensor = [torch.zeros_like(tensor) for _ in
-                           range(dist.get_world_size(group))]
+        gathered_tensor = [
+            torch.zeros_like(tensor) for _ in range(dist.get_world_size(group))
+        ]
 
         dist.all_gather(gathered_tensor, tensor.contiguous(), group=group)
         gathered_tensor = torch.cat(gathered_tensor, 0)
@@ -69,8 +71,9 @@ class GatherLayer(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         grad_input = grad_output.clone().contiguous()
-        dist.all_reduce(grad_input, op=dist.ReduceOp.SUM, async_op=False,
-                        group=ctx.group)
+        dist.all_reduce(
+            grad_input, op=dist.ReduceOp.SUM, async_op=False, group=ctx.group
+        )
 
         idx_from = ctx.rank * ctx.batch_size
         idx_to = (ctx.rank + 1) * ctx.batch_size
@@ -79,11 +82,11 @@ class GatherLayer(torch.autograd.Function):
 
 class GatherLayerStack(torch.autograd.Function):
     """
-        :class:`GatherLayer` is a module wrapper that realizes backward op in all_gather
-        Usage:
-        feat_global = torch.stack(all_gather(feat, group), 0)
-        # equals to
-        feat_global = GatherLayer.apply(feat, group, rank)
+    :class:`GatherLayer` is a module wrapper that realizes backward op in all_gather
+    Usage:
+    feat_global = torch.stack(all_gather(feat, group), 0)
+    # equals to
+    feat_global = GatherLayer.apply(feat, group, rank)
     """
 
     @staticmethod
@@ -91,8 +94,9 @@ class GatherLayerStack(torch.autograd.Function):
         ctx.group = group
         ctx.rank = rank
 
-        gathered_tensor = [torch.zeros_like(tensor) for _ in
-                           range(dist.get_world_size(group))]
+        gathered_tensor = [
+            torch.zeros_like(tensor) for _ in range(dist.get_world_size(group))
+        ]
 
         dist.all_gather(gathered_tensor, tensor, group=group)
         gathered_tensor = torch.stack(gathered_tensor, 0)
@@ -102,7 +106,8 @@ class GatherLayerStack(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         grad_input = grad_output.clone().contiguous()
-        dist.all_reduce(grad_input, op=dist.ReduceOp.SUM, async_op=False,
-                        group=ctx.group)
+        dist.all_reduce(
+            grad_input, op=dist.ReduceOp.SUM, async_op=False, group=ctx.group
+        )
 
         return grad_input[ctx.rank], None, None

@@ -1,12 +1,12 @@
+import logging
 import os
 import sys
-import yaml
-import logging
+from itertools import repeat as iter_repeat
+
 import numpy as np
 import torch
 import torch.distributed as dist
-from itertools import repeat as iter_repeat
-
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +29,13 @@ def read_config(config_file, section=None):
     return config[section]
 
 
-def write_yaml(yaml_data, fname):
-    with open(fname, 'w') as fout:
-        _ = yaml.dump(yaml_data, fout)
-
-
 def filter_args_by_start(args, start):
     newargs = []
     chars_to_remove = len(start)
     for i in range(0, len(args), 2):
         if args[i].startswith(start):
             newargs.append(args[i][chars_to_remove:])
-            newargs.append(args[i+1])
+            newargs.append(args[i + 1])
     return newargs
 
 
@@ -48,16 +43,16 @@ def replace_keys(_dict, args):
     nested_args = []
     singleton_arg_values = []
     for i in range(0, len(args), 2):
-        if '#' in args[i]:
-            nested_args.append(args[i].split('#')[0])
+        if "#" in args[i]:
+            nested_args.append(args[i].split("#")[0])
         else:
-            singleton_arg_values.append((args[i], args[i+1]))
+            singleton_arg_values.append((args[i], args[i + 1]))
     for nested_arg in nested_args:
-        assert nested_arg in _dict, f'nested arg {nested_arg} not in dict'
-        subargs = filter_args_by_start(args, nested_arg+'#')
+        assert nested_arg in _dict, f"nested arg {nested_arg} not in dict"
+        subargs = filter_args_by_start(args, nested_arg + "#")
         _dict[nested_arg] = replace_keys(_dict[nested_arg], subargs)
     for sngl_arg, sngl_val in singleton_arg_values:
-        assert sngl_arg in _dict, f'singleton arg {sngl_arg} not in dict'
+        assert sngl_arg in _dict, f"singleton arg {sngl_arg} not in dict"
         _dict[sngl_arg] = type(_dict[sngl_arg])(sngl_val)
     return _dict
 
@@ -90,6 +85,7 @@ def scatter_tensor_from_one(tensor_dest, tensor_list):
 def move_to_device(batch, device):
     def move_to_device_(x):
         return move_to_device(x, device)
+
     if isinstance(batch, dict):
         batch = {k: move_to_device_(v) for k, v in batch.items()}
     elif isinstance(batch, list):
@@ -110,10 +106,15 @@ def move_to_device(batch, device):
 def split_by_max_batch_size(batch_data, chunk_size):
     if isinstance(batch_data, dict):
         keys = list(batch_data.keys())
-        split_batch_values = [split_by_max_batch_size(batch_data[k], chunk_size) for k in keys]
+        split_batch_values = [
+            split_by_max_batch_size(batch_data[k], chunk_size) for k in keys
+        ]
         if all([isinstance(x, iter_repeat) for x in split_batch_values]):
             return iter_repeat(batch_data)
-        return [dict(zip(kk, tt)) for kk, tt in zip(iter_repeat(keys), zip(*split_batch_values))]
+        return [
+            dict(zip(kk, tt))
+            for kk, tt in zip(iter_repeat(keys), zip(*split_batch_values))
+        ]
     elif isinstance(batch_data, list):
         split_batch_data = [split_by_max_batch_size(x, chunk_size) for x in batch_data]
         if all([isinstance(x, iter_repeat) for x in split_batch_data]):
@@ -142,4 +143,4 @@ class TeeLogger(object):
 
 
 def check_overlap(a, b):
-    return (len(set(a) & set(b)) > 0)
+    return len(set(a) & set(b)) > 0
