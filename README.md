@@ -1,10 +1,10 @@
 <h1 align="center">Contrastive Generalizable Embeddings</h1>
 <hr>
 
-<!-- <div><h3 align="center">
+<div><h3 align="center">
     <img width="320" height="200" src="logo.png" />
 </h3></div>
-![alternative text](logo.png) -->
+![alternative text](logo.png)
 
 Highly optimized implementation of CORGEE to train state-of-the-art embedding models.
 
