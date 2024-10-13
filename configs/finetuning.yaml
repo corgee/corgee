@@ -6,6 +6,7 @@ model:
     text1:
       type: "sbert"
       desc: "intfloat/multilingual-e5-base"
+      # load:
     text2: "text1"
   loss:
     losstrain:
@@ -16,7 +17,7 @@ model:
   find_unused_parameters: True
   bf16: true
 exec:
-  output_dir: "outputs/pretraining/"
+  output_dir: "outputs/finetuning/"
   train:
     save_interval: 100000
     forward_backward:
@@ -38,14 +39,14 @@ exec:
       grad_clip_norm: 2.0
       max_forward_batch_size: 2
     data:
-      format: "binl_pairs_mt"
+      format: "binl_pairs_wnegs_mt"
       data:
         files:
           data1:
             num_steps: 1000
             maxlen1: 16
             maxlen2: 64
-            file_pattern: "resources/pretraining_data_tokenized/*.tokbin"
+            file_pattern: "resources/finetuning_data_tokenized/*.tokbin"
         dtype: uint32
         padding_index: 1
         target: "losstrain:text1->text2"

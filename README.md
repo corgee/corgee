@@ -1,7 +1,7 @@
 # CORGEE: Contrastive Generalizable Embeddings
 
 <div align="center">
-  <img src="resources/logo.png" alt="CORGEE Logo" width="320" height="200">
+  <img src="resources/logo.png" alt="CORGEE Logo" width="480" height="300">
 </div>
 
 CORGEE is a highly optimized implementation for training state-of-the-art embedding models using Contrastive Generalizable Embeddings.
@@ -25,36 +25,34 @@ CORGEE is a highly optimized implementation for training state-of-the-art embedd
 ### Data Format
 Prepare your datasets as jsonl files with the following columns:
 - `query`: str
-- `positive_docs`: List[str]
+- `positive_doc`: str
 - `negative_docs`: List[str] (not needed for pretraining)
 
 Sample datasets:
-- Pretraining: `resources/pretraining_data.jsonl`
-- Fine-tuning: `resources/finetuning_data.jsonl`
+- Pretraining: `resources/pretraining_data/*.jsonl`
+- Fine-tuning: `resources/finetuning_data/*.jsonl`
 
 ### Tokenization
 Training requires pretokenized datasets stored as binary files. To tokenize your data:
 
 ```bash
 # For pretraining data
-python corgee/data/tokenize.py \
+python corgee/data/create_tokbins.py \
   --tokenizer intfloat/multilingual-e5-base \
-  --input_dir resources/pretraining_data.jsonl \
-  --output_dir resources/pretraining_data_tokenized/ \
-  --num_negatives 0
+  --input_dir resources/pretraining_data/ \
+  --output_dir resources/pretraining_data_tokenized/
 
 # For fine-tuning data
-python corgee/data/tokenize.py \
+python corgee/data/create_tokbins.py \
   --tokenizer intfloat/multilingual-e5-base \
-  --input_dir resources/finetuning_data.jsonl \
-  --output_dir resources/finetuning_data_tokenized/ \
-  --num_negatives 4
+  --input_dir resources/finetuning_data/ \
+  --output_dir resources/finetuning_data_tokenized/
 ```
 
 ## Training
 
 1. Create a `config.yaml` file with relevant parameters.
-   - Sample configs are provided in the `configs/` directory.
+   - Sample pretraining and finetuning configs are provided in the `configs/` directory.
 
 2. Start training:
 
