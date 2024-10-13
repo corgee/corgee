@@ -2,7 +2,7 @@
 <hr>
 
 <div><h3 align="center">
-    <img width="320" height="200" src="logo.png" />
+    <img width="320" height="200" src="resources/logo.png" />
 </h3></div>
 ![alternative text](logo.png)
 
