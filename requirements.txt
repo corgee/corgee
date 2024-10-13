@@ -1,5 +1,6 @@
 torch
 transformers
+datasets
 sentence-transformers
 wandb
 numba

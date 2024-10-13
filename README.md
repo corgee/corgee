@@ -1,53 +1,61 @@
-<h1 align="center">Contrastive Generalizable Embeddings</h1>
-<hr>
+# CORGEE: Contrastive Generalizable Embeddings
 
-<div><h3 align="center">
-    <img width="320" height="200" src="resources/logo.png" />
-</h3></div>
-![alternative text](logo.png)
+<div align="center">
+  <img src="resources/logo.png" alt="CORGEE Logo" width="320" height="200">
+</div>
 
-Highly optimized implementation of CORGEE to train state-of-the-art embedding models.
+CORGEE is a highly optimized implementation for training state-of-the-art embedding models using Contrastive Generalizable Embeddings.
 
-# Prepare data and config
-You can first check and evaluate available models before you train/ fine-tune your own model.
-To train from scratch/ fine-tune an available encoder (recommended) you need to select a suitable encoder from the available ones/ prepare training data and modify training config. More details on this can be found here.
+## Table of Contents
+- [Environment Setup](#environment-setup)
+- [Dataset Preparation](#dataset-preparation)
+- [Training](#training)
+- [Important Parameters](#important-parameters)
 
-# Submit training jobs
-These steps assume that you have setup training data and training config in above section. Also you need to have access to a Singularity VC or have a local GPU server.
-## Using Æther
-- Upload config file to a path in cosmos
-- Clone the pipeline: aether://TODO. Some template pipelines are available here: TODO
-- Configure the following parameters: Username, PAT, Config path, Output directory
-- Aether runs also convert the final model to ONNX format for faster inference
-## Using Amulet
-- Clone repository
-- Setup Amulet (https://amulet-docs.azurewebsites.net/main/index.html)
-- Run the interactive submission script: source remote/amlt_submit.sh
-## Locally on GPU servers
-- Clone repository
-- Setup packages remote/setup.sh
-- Start training: run.sh
+[... previous sections unchanged ...]
 
-# Inference in Aether
-- Embedding inference using AdsBrain based inference
-- Sample recall evaluation pipeline
+## Training
 
-# Available models
-TODO: provide embedding inference pipelines and evaluation pipelines for each of these
-- General models: 
-  - English
-  - Multilingual
-- Retail click models:
-  - English
-  - Multilingual INTL
-  - Multilingual global
-- General retail models:
-  - English
-  - Multilingual INTL
-  - Multilingual global
+1. Create a `config.yaml` file with relevant parameters.
+   - Sample configs are provided in the `configs/` directory.
 
-# Mainstreamings
-Refer here for a summary of product impact from models trained by CORGEE
+2. Start training:
 
-<hr>
-May thy models converge, and generalize better
+   ### Single Node
+   For running on a single node:
+   ```bash
+   source run.sh config.yaml
+   ```
+
+   ### Multiple Nodes
+   For running on multiple nodes (e.g., 4 nodes):
+   ```bash
+   DIST_NUM_NODES=4 source run.sh config.yaml
+   ```
+
+   Adjust the `DIST_NUM_NODES` value according to your setup.
+
+3. Parameter Configuration:
+   - Set parameters in `config.yaml`
+   - Override important parameters via command line as needed
+
+Sample configs are provided in `configs/`
+
+## Important Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `output_dir` | Directory for logs and saved models |
+| `batch_size` | Training batch size |
+| `max_forward_batch_size` | Maximum batch size for GPU forwarding |
+| `files` | Dictionary of dataset configurations |
+
+### Dataset Configuration
+
+Each dataset in the `files` dictionary requires:
+- `num_steps`: Number of training batches to sample
+- `maxlen1`: Maximum tokens in query
+- `maxlen2`: Maximum tokens in positive/negative documents
+- `file_pattern`: Regex pattern for tokbin files
+
+**Note**: Batches are sampled from one dataset at a time. For language-wise sampling, make each language a separate dataset.
