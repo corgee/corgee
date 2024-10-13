@@ -25,11 +25,11 @@ exec:
       bf16: True
       ema:
         beta: 0.995
-        update_after_step: 1000
+        update_after_step: 10
         update_every: 10
       scheduler:
         type: "warmuplinear"
-        warmup_steps: 400
+        warmup_steps: 10
       optimizer:
         type: "adamw"
         lr: 0.00002
@@ -42,7 +42,7 @@ exec:
       data:
         files:
           data1:
-            num_steps: 1000
+            num_steps: 100
             maxlen1: 16
             maxlen2: 64
             file_pattern: "resources/pretraining_data_tokenized/*.tokbin"

@@ -6,7 +6,12 @@ model:
     text1:
       type: "sbert"
       desc: "intfloat/multilingual-e5-base"
-      # load:
+      load:
+        path: "outputs/pretraining/models/model.pt"
+        transformations:
+            - replace: "module.=>"
+            - filter: "encoders.text1."
+            - replace_start: "encoders.text1.=>"
     text2: "text1"
   loss:
     losstrain:
@@ -21,32 +26,30 @@ exec:
   train:
     save_interval: 100000
     forward_backward:
-      emb_keys: "text1,text2"
-      emb_dim: 768
       bf16: True
       ema:
         beta: 0.995
-        update_after_step: 1000
+        update_after_step: 10
         update_every: 10
       scheduler:
         type: "warmuplinear"
-        warmup_steps: 400
+        warmup_steps: 10
       optimizer:
         type: "adamw"
-        lr: 0.00002
+        lr: 0.0002
         eps: 1.0e-06
         weight_decay: 0.01
       grad_clip_norm: 2.0
-      max_forward_batch_size: 2
     data:
       format: "binl_pairs_wnegs_mt"
       data:
         files:
           data1:
-            num_steps: 1000
+            num_steps: 200
             maxlen1: 16
             maxlen2: 64
             file_pattern: "resources/finetuning_data_tokenized/*.tokbin"
+        num_negatives: 4
         dtype: uint32
         padding_index: 1
         target: "losstrain:text1->text2"

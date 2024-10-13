@@ -10,3 +10,5 @@ if [ -z "$DIST_NUM_NODES" ]; then
 else
     torchrun --nnodes=$DIST_NUM_NODES --nproc-per-node=$(python -c "import torch; print(torch.cuda.device_count())") corgee/main/run.py $@
 fi
+
+# torchrun corgee/main/run.py $@

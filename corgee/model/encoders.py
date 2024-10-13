@@ -29,6 +29,35 @@ def create_encoder(enc_conf, encoders):
             encoder, LinearProjection(enc_conf["projection"], in_dim=encoder.out_dim)
         )
 
+    load = enc_conf.get('load', None)
+    if load is not None:
+        sd = torch.load(load['path'], map_location='cpu')
+        # import code; code.interact(local=locals())
+        if not load.get('state_dict_at_root', False):
+            sd = sd['model_state_dict']
+        if 'transformations' in load:
+            for trf in load['transformations']:
+                assert isinstance(trf, dict) and len(trf) == 1
+                if 'replace_start' in trf:
+                    find, replace = trf['replace_start'].split('=>')
+                    sd = {(replace+k[len(find):] if k.startswith(find) else k): v for k, v in sd.items()}
+                elif 'filter' in trf:
+                    sd_filter = {}
+                    for pattern in trf['filter'].split('|'):
+                        sd_filter.update({k: v for k, v in sd.items() if k.startswith(pattern)})
+                    sd = sd_filter
+                elif 'remove_start' in trf:
+                    sd = {k: v for k, v in sd.items() if not k.startswith(trf['remove_start'])}
+                elif 'replace' in trf:
+                    find, replace = trf['replace'].split('=>')
+                    sd = {k.replace(find, replace): v for k, v in sd.items()}
+                else:
+                    raise NotImplementedError
+        res = encoder.load_state_dict(sd, strict=load.get('strict', True))
+        if not load.get('strict'):
+            logger.info(f'missing keys {res.missing_keys}')
+            logger.info(f'unexpected keys {res.unexpected_keys}')
+
     return encoder
 
 
@@ -75,7 +104,15 @@ class STransformerInputLayer(nn.Module):
         self.out_dim = self.transformer.get_sentence_embedding_dimension()
 
     def encode(self, data):
-        return self.transformer(data)["sentence_embedding"]
+        if data['input_ids'].ndim > 2:
+            shape = data['input_ids'].shape
+            embs = self.transformer({
+                'input_ids': data['input_ids'].view((-1, shape[-1])),
+                'attention_mask': data['attention_mask'].view((-1, shape[-1]))
+            })["sentence_embedding"]
+            return embs.view((*shape[:-1], embs.shape[-1]))
+        else:
+            return self.transformer(data)["sentence_embedding"]
 
     def forward(self, data):
         if "mask" in data:
