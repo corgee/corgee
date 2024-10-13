@@ -4,10 +4,9 @@ import logging
 import numpy as np
 from numba import njit
 import torch
-import torch.distributed as dist
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from data.data_utils import parse_target, connect_adl
+from data.data_utils import parse_target
 from main.main_utils import scatter_tensor_from_one
 
 
@@ -65,8 +64,6 @@ class BinLPairsDataLoader():
     before starting
     '''
 
-    prepare_fn = lambda *args: None
-
     def __init__(self, config, rank, world_size, device, *args, **kwargs):
         self.config = config
         self.rank = rank
@@ -85,19 +82,6 @@ class BinLPairsDataLoader():
         data_config = config['data']
         self.maxlen1 = data_config.get('maxlen1', 32)
         self.maxlen2 = data_config.get('maxlen2', 128)
-
-        self.prefix1 = data_config.get('prefix1', None)
-        if self.prefix1 is not None:
-            self.prefix1 = torch.tensor(list(map(int, self.prefix1.split(','))), dtype=torch.int32)
-        self.prefix2 = data_config.get('prefix2', None)
-        if self.prefix2 is not None:
-            self.prefix2 = torch.tensor(list(map(int, self.prefix2.split(','))), dtype=torch.int32)
-        self.suffix1 = data_config.get('suffix1', None)
-        if self.suffix1 is not None:
-            self.suffix1 = torch.tensor(list(map(int, self.suffix1.split(','))), dtype=torch.int32)
-        self.suffix2 = data_config.get('suffix2', None)
-        if self.suffix2 is not None:
-            self.suffix2 = torch.tensor(list(map(int, self.suffix2.split(','))), dtype=torch.int32)
 
         # for example, cut #tokens to 95%ile max tokens to a multiple of 32 for example
         self.cut_percentile = data_config.get('cut_percentile', None)
@@ -226,22 +210,6 @@ class BinLPairsDataLoader():
             if self.rank == 0:
                 feats1, feats2 = self._train_batches_queue.get(timeout=600)
                 self._train_batches_queue.task_done()
-                if self.prefix1 is not None:
-                    feats1 = torch.cat((self.prefix1[None, :].repeat(self.batch_size, 1), feats1),
-                                       dim=1)[:, :self.maxlen1]
-                if self.prefix2 is not None:
-                    feats2 = torch.cat((self.prefix2[None, :].repeat(self.batch_size, 1), feats2),
-                                       dim=1)[:, :self.maxlen2]
-                if self.suffix1 is not None:
-                    start_cols = torch.minimum((feats1>0).sum(1)+len(self.suffix1), torch.tensor(self.maxlen1))-len(self.suffix1)
-                    start_rows = torch.arange(feats1.shape[0])
-                    for _i in range(len(self.suffix1)):
-                        feats1[start_rows, start_cols+_i] = self.suffix1[_i]
-                if self.suffix2 is not None:
-                    start_cols = torch.minimum((feats2>0).sum(1)+len(self.suffix2), torch.tensor(self.maxlen2))-len(self.suffix2)
-                    start_rows = torch.arange(feats2.shape[0])
-                    for _i in range(len(self.suffix2)):
-                        feats2[start_rows, start_cols+_i] = self.suffix2[_i]
                 feats1 = list(feats1.to(device='cuda').tensor_split(self.world_size))
                 feats2 = list(feats2.to(device='cuda').tensor_split(self.world_size))
 
@@ -296,24 +264,7 @@ class BinLPairsDataLoader():
         self.num_batches = sd['num_batches']
 
 
-class BinLPairsAdlDataLoader(BinLPairsDataLoader):
-    def __init__(self, config, rank, world_size, device, *args, **kwargs):
-        self.adl = connect_adl()
-        super(BinLPairsAdlDataLoader, self).__init__(config, rank, world_size, device, *args, **kwargs)
-
-    def populate_all_files(self, file_pattern):
-        self.all_files = []
-        for pattern in file_pattern.split('|'):
-            self.all_files.extend(self.adl.glob(pattern))
-
-    def _read_file(self, fpath):
-        with self.adl.open(fpath, 'rb') as f:
-            bytesdata = f.read()
-        return np.frombuffer(bytesdata, dtype=self.dtype)
-
-
 class BinLPairsDataLoaderMultitask():
-    prepare_fn = lambda *args: None
     def __init__(self, config, rank, world_size, device, *args, **kwargs):
         self.rank = rank
         self.world_size = world_size
@@ -324,7 +275,6 @@ class BinLPairsDataLoaderMultitask():
         data_config = config['data']
         self.datasets = list(data_config['files'].keys())
         logger.info(f'datasets: {self.datasets}')
-        self.adl_enabled = data_config.get('adl', True)
         num_steps_datasets = np.array([data_config['files'][d]['num_steps'] for d in self.datasets], dtype=np.int32)
         self.num_steps, self.num_batches = num_steps_datasets.sum(), 0
 
@@ -348,19 +298,8 @@ class BinLPairsDataLoaderMultitask():
             config_copy['data']['num_reader_threads'] = data_config['files'][d].get('num_reader_threads', 1)
             config_copy['data']['maxlen1'] = data_config['files'][d]['maxlen1']
             config_copy['data']['maxlen2'] = data_config['files'][d]['maxlen2']
-            if 'prefix1' in data_config['files'][d]:
-                config_copy['data']['prefix1'] = data_config['files'][d]['prefix1']
-            if 'prefix2' in data_config['files'][d]:
-                config_copy['data']['prefix2'] = data_config['files'][d]['prefix2']
-            if 'suffix1' in data_config['files'][d]:
-                config_copy['data']['suffix1'] = data_config['files'][d]['suffix1']
-            if 'suffix2' in data_config['files'][d]:
-                config_copy['data']['suffix2'] = data_config['files'][d]['suffix2']
             config_copy['data']['file_pattern'] = data_config['files'][d]['file_pattern']
-            if self.adl_enabled:
-                self.dls[d] = BinLPairsAdlDataLoader(config_copy, rank, world_size, device, *args, **kwargs)
-            else:
-                self.dls[d] = BinLPairsDataLoader(config_copy, rank, world_size, device, *args, **kwargs)
+            self.dls[d] = BinLPairsDataLoader(config_copy, rank, world_size, device, *args, **kwargs)
 
     def __iter__(self):
         self.dl_iters = [iter(self.dls[x]) for x in self.datasets]

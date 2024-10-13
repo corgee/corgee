@@ -11,7 +11,6 @@ import torch
 import random
 import numpy as np
 import datetime
-from data.dl import prepare_all_config_datasets
 from model.model_main import Model
 from main.main_utils import read_config, write_yaml, override_configs, TeeLogger
 from main.workers import Worker
@@ -72,10 +71,6 @@ logging.basicConfig(
 logger.info(f'{rank} {world_size} {local_rank} {local_world_size}')
 logger.info(f'using backend {backend}')
 
-
-# prepare data in rank 0 if needed
-if config.get('prepare_data', False) and rank == 0:
-    prepare_all_config_datasets(config['exec'])
 
 def is_deepspeed(config):
     if 'train' not in config['exec']:

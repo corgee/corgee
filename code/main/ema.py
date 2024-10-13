@@ -2,11 +2,9 @@ from copy import deepcopy
 from functools import partial
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor
 from torch.nn import Module
 
-from beartype import beartype
-from beartype.typing import Set, Optional
 
 def exists(val):
     return val is not None
@@ -49,11 +47,10 @@ class EMA(Module):
         min_value (float): The minimum EMA decay rate. Default: 0.
     """
 
-    @beartype
     def __init__(
         self,
-        model: Module,
-        ema_model: Optional[Module] = None,           # if your model has lazylinears or other types of non-deepcopyable modules, you can pass in your own ema model
+        model,
+        ema_model = None,           # if your model has lazylinears or other types of non-deepcopyable modules, you can pass in your own ema model
         beta = 0.9999,
         karras_beta = False,                          # if True, uses the karras time dependent beta
         update_after_step = 100,
@@ -61,9 +58,9 @@ class EMA(Module):
         inv_gamma = 1.0,
         power = 2 / 3,
         min_value = 0.0,
-        param_or_buffer_names_no_ema: Set[str] = set(),
-        ignore_names: Set[str] = set(),
-        ignore_startswith_names: Set[str] = set(),
+        param_or_buffer_names_no_ema = set(),
+        ignore_names = set(),
+        ignore_startswith_names = set(),
         include_online_model = True,                  # set this to False if you do not wish for the online model to be saved along with the ema model (managed externally)
         allow_different_devices = False               # if the EMA model is on a different device (say CPU), automatically move the tensor
     ):

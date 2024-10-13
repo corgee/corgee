@@ -1,14 +1,9 @@
-import glob
 import copy
 import logging
 import numpy as np
 from numba import njit
 import torch
-import torch.distributed as dist
-from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
-from data.data_utils import parse_target, connect_adl
-from main.main_utils import split_by_count, scatter_tensor_from_one
+from main.main_utils import scatter_tensor_from_one
 from data.bin_pairs_reader import BinLPairsDataLoader, get_binlines_len
 
 
@@ -47,8 +42,6 @@ class BinLPairsWithNegativesDataLoader(BinLPairsDataLoader):
     Because of efficiency, loading will happen in only rank=0 worker, others will just collect data
     before starting
     '''
-
-    prepare_fn = lambda *args: None
 
     def __init__(self, config, rank, world_size, device, *args, **kwargs):
         self.num_negatives = config['data']['num_negatives']
@@ -130,24 +123,7 @@ class BinLPairsWithNegativesDataLoader(BinLPairsDataLoader):
             yield batch_data
 
 
-class BinLPairsWithNegativesAdlDataLoader(BinLPairsWithNegativesDataLoader):
-    def __init__(self, config, rank, world_size, device, *args, **kwargs):
-        self.adl = connect_adl()
-        super(BinLPairsWithNegativesAdlDataLoader, self).__init__(config, rank, world_size, device, *args, **kwargs)
-
-    def populate_all_files(self, file_pattern):
-        self.all_files = []
-        for pattern in file_pattern.split('|'):
-            self.all_files.extend(self.adl.glob(pattern))
-
-    def _read_file(self, fpath):
-        with self.adl.open(fpath, 'rb') as f:
-            bytesdata = f.read()
-        return np.frombuffer(bytesdata, dtype=np.uint16)
-
-
-class BinLPairsAdlDataLoaderMultitask():
-    prepare_fn = lambda *args: None
+class BinLPairsWithNegativesDataLoaderMultitask():
     def __init__(self, config, rank, world_size, device, *args, **kwargs):
         self.rank = rank
         self.world_size = world_size
@@ -171,7 +147,7 @@ class BinLPairsAdlDataLoaderMultitask():
             config_copy['data']['maxlen1'] = data_config['files'][d]['maxlen1']
             config_copy['data']['maxlen2'] = data_config['files'][d]['maxlen2']
             config_copy['data']['file_pattern'] = data_config['files'][d]['file_pattern']
-            self.dls[d] = BinLPairsWithNegativesAdlDataLoader(config_copy, rank, world_size, device, *args, **kwargs)
+            self.dls[d] = BinLPairsWithNegativesDataLoader(config_copy, rank, world_size, device, *args, **kwargs)
 
     def __iter__(self):
         self.dl_iters = [iter(self.dls[x]) for x in self.datasets]
@@ -200,4 +176,3 @@ class BinLPairsAdlDataLoaderMultitask():
         self.num_batches = sd['num_batches']
         for k, v in sd['dls']:
             self.dls[k].load_state_dict(v)
-

@@ -1,0 +1,57 @@
+seed: 42
+log_local_only: True
+
+model:  # sets encoders for all data types and contrastive loss parameters to be used
+  encoders:  # having stray encoders here doesn't hurt
+    text1:
+      type: "sbert"
+      desc: "intfloat/multilingual-e5-base"
+    text2: "text1"
+  loss:
+    losstrain:
+      type: "nce"
+      all_gather: True
+      logit_scale: 4.0
+      train_logit_scale: False
+  find_unused_parameters: False
+  bf16: true
+exec:
+  output_dir: "/data/sheshansh/_temp/test_output"
+  # wandb:
+  #   api_key: 'ccfa8380d4f9520a36a40e99ad9764f7e71e9e19'
+  #   project: 'instruct_tune'
+  #   entity: 'corgee'
+  #   name: "instruct_tune_cls_in_middle_lr2en5"
+  #   logging_frequency: 20
+  train:
+    save_interval: 100000
+    forward_backward:
+      bf16: True
+      ema:
+        beta: 0.995  # override 0.0001, 0.99, 0.995, 0.999, ema should help?
+        update_after_step: 1000
+        update_every: 10
+      scheduler:
+        type: "warmuplinear"
+        warmup_steps: 400
+      optimizer:
+        type: "adamw"
+        lr: 0.00002  # override uniform [2e-5, 6e-5]...
+        eps: 1.0e-06
+        weight_decay: 0.01
+      grad_clip_norm: 2.0
+      max_forward_batch_size: 64
+    data:
+      format: "binl_pairs_mt"
+      data:
+        files:
+          data1:
+            num_steps: 100
+            maxlen1: 16
+            maxlen2: 32
+            file_pattern: "/data/sheshansh/_temp/test/*.tokbin"
+
+        dtype: uint32
+        target: "losstrain:text1->text2"
+        batch_size: 16
+        padding_index: 1
