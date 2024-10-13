@@ -1,9 +1,12 @@
-import copy
 import logging
 
 import numpy as np
 import torch
-from data.bin_pairs_reader import BinLPairsDataLoader, BinLPairsDataLoaderMultitask, get_binlines_len
+from data.bin_pairs_reader import (
+    BinLPairsDataLoader,
+    BinLPairsDataLoaderMultitask,
+    get_binlines_len,
+)
 from main.main_utils import scatter_tensor_from_one
 from numba import njit
 
@@ -103,6 +106,7 @@ class BinLPairsWithNegativesDataLoader(BinLPairsDataLoader):
                 feats2 = feats2[0]
 
             if self.cut_percentile is not None:
+
                 def next_multiple(num, multiple):
                     num += multiple - 1
                     num -= num % multiple
