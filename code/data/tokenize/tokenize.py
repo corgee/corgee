@@ -15,4 +15,4 @@ for i in tqdm.trange(N):
     tok = tokenizer.encode(rand_str)
     all_tokens.append([len(tok)] + tok)
 
-np.concatenate(all_tokens).tofile("/data/sheshansh/_temp/test/0.tokbin")
+np.concatenate(all_tokens).astype(np.uint32).tofile("/data/sheshansh/_temp/test/0.tokbin")

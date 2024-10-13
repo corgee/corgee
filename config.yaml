@@ -50,8 +50,8 @@ exec:
             maxlen1: 16
             maxlen2: 32
             file_pattern: "/data/sheshansh/_temp/test/*.tokbin"
-
         dtype: uint32
-        target: "losstrain:text1->text2"
-        batch_size: 16
         padding_index: 1
+        target: "losstrain:text1->text2"
+      dl:
+        batch_size: 16
