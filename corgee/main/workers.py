@@ -83,10 +83,8 @@ class Worker:
         self.model = model
 
         self.out_dir = config["output_dir"]
-        self.eval_out_dir = os.path.join(self.out_dir, "eval")
         self.model_out_dir = os.path.join(self.out_dir, "models")
         os.makedirs(self.out_dir, exist_ok=True)
-        os.makedirs(self.eval_out_dir, exist_ok=True)
         os.makedirs(self.model_out_dir, exist_ok=True)
 
         self.wandb_h = None

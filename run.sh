@@ -8,6 +8,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/corgee"
 if [ -z "$DIST_NUM_NODES" ]; then
     torchrun --standalone --nnodes=1 --nproc-per-node=$(python -c "import torch; print(torch.cuda.device_count())") corgee/main/run.py $@
 else
-    torchrun --standalone --nnodes=$DIST_NUM_NODES --nproc-per-node=$(python -c "import torch; print(torch.cuda.device_count())") corgee/main/run.py $@
+    torchrun --nnodes=$DIST_NUM_NODES --nproc-per-node=$(python -c "import torch; print(torch.cuda.device_count())") corgee/main/run.py $@
 fi
-# torchrun corgee/main/run.py $@  ## For running a single process
+
+# torchrun corgee/main/run.py $@

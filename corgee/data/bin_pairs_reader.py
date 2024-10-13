@@ -295,6 +295,7 @@ class BinLPairsDataLoader:
 
 
 class BinLPairsDataLoaderMultitask:
+    SingleDatasetClass = BinLPairsDataLoader
     def __init__(self, config, rank, world_size, device, *args, **kwargs):
         self.rank = rank
         self.world_size = world_size
@@ -334,7 +335,7 @@ class BinLPairsDataLoaderMultitask:
             config_copy["data"]["file_pattern"] = data_config["files"][d][
                 "file_pattern"
             ]
-            self.dls[d] = BinLPairsDataLoader(
+            self.dls[d] = self.SingleDatasetClass(
                 config_copy, rank, world_size, device, *args, **kwargs
             )
 

@@ -3,7 +3,7 @@ import logging
 
 import numpy as np
 import torch
-from data.bin_pairs_reader import BinLPairsDataLoader, get_binlines_len
+from data.bin_pairs_reader import BinLPairsDataLoader, BinLPairsDataLoaderMultitask, get_binlines_len
 from main.main_utils import scatter_tensor_from_one
 from numba import njit
 
@@ -29,8 +29,8 @@ def fill_dense_array_pairs_with_negs(data, densemat1, densemat2):
 
 def read_pairs_with_negs(data, maxlen1, maxlen2, num_negatives):
     numrows = get_binlines_len(data) // (2 + num_negatives)
-    densemat1 = np.zeros((numrows, maxlen1), dtype=np.uint16)
-    densemat2 = np.zeros((numrows, 1 + num_negatives, maxlen2), dtype=np.uint16)
+    densemat1 = np.zeros((numrows, maxlen1), dtype=data.dtype)
+    densemat2 = np.zeros((numrows, 1 + num_negatives, maxlen2), dtype=data.dtype)
     fill_dense_array_pairs_with_negs(data, densemat1, densemat2)
     # another option is to store in int16 format and handle negative indices when vocab > 32k
     # but that would save 2x memory, but extra negative check in loading, risky
@@ -72,42 +72,6 @@ class BinLPairsWithNegativesDataLoader(BinLPairsDataLoader):
             if self.rank == 0:
                 feats1, feats2 = self._train_batches_queue.get(timeout=600)
                 self._train_batches_queue.task_done()
-                if self.prefix1 is not None:
-                    bsz1, numtok1 = feats1.shape
-                    feats1 = torch.cat(
-                        (self.prefix1[None, :].repeat(bsz1, 1), feats1), dim=1
-                    )[:, :numtok1]
-                if self.prefix2 is not None:
-                    bsz2, num_ex, numtok2 = feats2.shape
-                    feats2 = torch.cat(
-                        (self.prefix2[None, None, :].repeat(bsz2, num_ex, 1), feats2),
-                        dim=2,
-                    )[:, :, :numtok2]
-                if self.suffix1 is not None:
-                    start_cols = torch.minimum(
-                        (feats1 > 0).sum(1) + len(self.suffix1),
-                        torch.tensor(self.maxlen1),
-                    ) - len(self.suffix1)
-                    start_rows = torch.arange(feats1.shape[0])
-                    for _i in range(len(self.suffix1)):
-                        feats1[start_rows, start_cols + _i] = self.suffix1[_i]
-                if self.suffix2 is not None:
-                    start_cols = torch.minimum(
-                        (feats2 > 0).sum(2) + len(self.suffix2),
-                        torch.tensor(self.maxlen2),
-                    ) - len(self.suffix2)
-                    batch_indices = (
-                        torch.arange(feats2.size(0))
-                        .unsqueeze(1)
-                        .expand(-1, feats2.size(1))
-                    )
-                    dim2_indices = torch.arange(feats2.size(1)).expand(
-                        feats2.size(0), -1
-                    )
-                    for _i in range(len(self.suffix2)):
-                        feats2[
-                            batch_indices, dim2_indices, start_cols - 1
-                        ] = self.suffix2[_i]
                 feats1 = list(feats1.to(device="cuda").tensor_split(self.world_size))
                 feats2 = list(feats2.to(device="cuda").tensor_split(self.world_size))
 
@@ -139,7 +103,6 @@ class BinLPairsWithNegativesDataLoader(BinLPairsDataLoader):
                 feats2 = feats2[0]
 
             if self.cut_percentile is not None:
-
                 def next_multiple(num, multiple):
                     num += multiple - 1
                     num -= num % multiple
@@ -173,66 +136,5 @@ class BinLPairsWithNegativesDataLoader(BinLPairsDataLoader):
             yield batch_data
 
 
-class BinLPairsWithNegativesDataLoaderMultitask:
-    def __init__(self, config, rank, world_size, device, *args, **kwargs):
-        self.rank = rank
-        self.world_size = world_size
-        self.device = device
-        self.num_steps, self.num_batches = int(config["num_steps"]), 0
-        data_config = config["data"]
-        self.datasets = list(data_config["files"].keys())
-        self.sample_probs = np.array(
-            [data_config["files"][d]["rate"] for d in self.datasets], dtype=np.float32
-        )
-        self.sample_probs /= self.sample_probs.sum()
-        logger.info(f"datasets: {self.datasets}")
-        logger.info(f"datasets: {self.sample_probs}")
-        self.dls = {}
-        for d in self.datasets:
-            config_copy = copy.deepcopy(config)
-            del config_copy["data"]["files"]
-            config_copy["data"]["reader_queue_len"] = data_config["files"][d].get(
-                "reader_queue_len", 2
-            )
-            config_copy["data"]["num_reader_threads"] = data_config["files"][d].get(
-                "num_reader_threads", 1
-            )
-            config_copy["data"]["maxlen1"] = data_config["files"][d]["maxlen1"]
-            config_copy["data"]["maxlen2"] = data_config["files"][d]["maxlen2"]
-            config_copy["data"]["file_pattern"] = data_config["files"][d][
-                "file_pattern"
-            ]
-            self.dls[d] = BinLPairsWithNegativesDataLoader(
-                config_copy, rank, world_size, device, *args, **kwargs
-            )
-
-    def __iter__(self):
-        self.dl_iters = [iter(self.dls[x]) for x in self.datasets]
-        while self.num_batches < self.num_steps:
-            self.num_batches += 1
-            dataset_idx = np.random.choice(len(self.sample_probs), p=self.sample_probs)
-            batch = next(self.dl_iters[dataset_idx])
-            batch["dataset_idx"] = dataset_idx
-            yield batch
-
-    def join(self):
-        for dl in self.dls.values():
-            dl.join()
-
-    def __len__(self):
-        return self.num_steps
-
-    def parse_steps(self, steps):
-        assert isinstance(steps, int), "bin lines datareader needs integer steps"
-        return steps
-
-    def state_dict(self):
-        return {
-            "num_batches": self.num_batches,
-            "dls": {k: v.state_dict() for k, v in self.dls.items()},
-        }
-
-    def load_state_dict(self, sd):
-        self.num_batches = sd["num_batches"]
-        for k, v in sd["dls"]:
-            self.dls[k].load_state_dict(v)
+class BinLPairsWithNegativesDataLoaderMultitask(BinLPairsDataLoaderMultitask):
+    SingleDatasetClass = BinLPairsWithNegativesDataLoader
