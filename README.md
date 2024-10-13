@@ -12,7 +12,44 @@ CORGEE is a highly optimized implementation for training state-of-the-art embedd
 - [Training](#training)
 - [Important Parameters](#important-parameters)
 
-[... previous sections unchanged ...]
+## Environment Setup
+
+1. Create and activate a fresh conda environment
+2. Install required packages:
+   ```
+   pip install -r requirements.txt
+   ```
+
+## Dataset Preparation
+
+### Data Format
+Prepare your datasets as jsonl files with the following columns:
+- `query`: str
+- `positive_docs`: List[str]
+- `negative_docs`: List[str] (not needed for pretraining)
+
+Sample datasets:
+- Pretraining: `resources/pretraining_data.jsonl`
+- Fine-tuning: `resources/finetuning_data.jsonl`
+
+### Tokenization
+Training requires pretokenized datasets stored as binary files. To tokenize your data:
+
+```bash
+# For pretraining data
+python corgee/data/tokenize.py \
+  --tokenizer intfloat/multilingual-e5-base \
+  --input_dir resources/pretraining_data.jsonl \
+  --output_dir resources/pretraining_data_tokenized/ \
+  --num_negatives 0
+
+# For fine-tuning data
+python corgee/data/tokenize.py \
+  --tokenizer intfloat/multilingual-e5-base \
+  --input_dir resources/finetuning_data.jsonl \
+  --output_dir resources/finetuning_data_tokenized/ \
+  --num_negatives 4
+```
 
 ## Training
 
