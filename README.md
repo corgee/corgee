@@ -4,7 +4,7 @@
   <img src="resources/logo.png" alt="CORGEE Logo" width="480" height="300">
 </div>
 
-CORGEE is a highly optimized implementation for training state-of-the-art embedding models using Contrastive Generalizable Embeddings.
+CORGEE COntRastive GEneralizable Embeddings: Framework for training state-of-the-art embedding models using Contrastive learning at large batch sizes.
 
 ## Table of Contents
 - [Environment Setup](#environment-setup)
